@@ -57,7 +57,7 @@ namespace THMDAllTowers.Patches
         [HarmonyPrefix]
         public static void Prefix(ref string name)
         {
-            var towers = Resources.FindObjectsOfTypeAll<Tower>().Where(tower => tower.data.id.EndsWith("Lv1")).ToArray();
+            var towers = Resources.FindObjectsOfTypeAll<Tower>().Where(tower => tower.data.id.EndsWith("Lv1")).OrderBy(tower => tower.data.model).ToArray();
 
             if (name.StartsWith("Level") || name.StartsWith("AnimLevel"))
             {
@@ -80,17 +80,17 @@ namespace THMDAllTowers.Patches
                     var key = evt.inputEvent.keyCode;
                     var shift = evt.inputEvent.shift;
 
-                    if (buildKeySet.Contains(key) && keyToUnitMap.TryGetValue(new KeyShiftPair(key, shift), out var unit))
+                    if (buildKeySet.Contains(key) && keyToUnitMap.TryGetValue(new KeyShiftPair(key, shift), out var tower))
                     {
-                        if (Game.Instance.CanBuild(unit))
+                        if (Game.Instance.CanBuild(tower))
                         {
-                            Game.Instance.Build(unit);
+                            Game.Instance.Build(tower);
                             UI_Game.Instance.HideStoreUI();
-                            Logger.LogInfo($"Built unit: {unit.name} with key: {key}, shift: {shift}");
+                            Logger.LogInfo($"Built unit: {tower.data.model} with key: {key}, shift: {shift}");
                         }
                         else
                         {
-                            Logger.LogInfo($"Cannot build unit: {unit.name} with key: {key}, shift: {shift}");
+                            Logger.LogInfo($"Cannot build unit: {tower.data.model} with key: {key}, shift: {shift}");
                         }
                     }
                 };
