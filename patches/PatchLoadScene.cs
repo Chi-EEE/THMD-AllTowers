@@ -52,33 +52,65 @@ namespace THMDAllTowers.Patches
 
         private static readonly HashSet<KeyCode> buildKeySet = new(buildKeys);
 
+        private static readonly KeyCode NextLevelKey = KeyCode.Equals; // '+' (on US keyboards it's usually 'Equals' with shift)
+        private static readonly KeyCode PrevLevelKey = KeyCode.Minus;
+
+        private static readonly string[] Levels = ["Lv1", "Lv2", "Lv3", "Lv4", "Lv5", "Lv6"];
+        private static int currentLevel = 0;
+
+        private static Dictionary<KeyShiftPair, Tower> keyToUnitMap = new();
+
         public static EventCallback1 onKeyDownHandler { get; internal set; } = null!;
+
+        private static void SwitchTowerLevel(int delta)
+        {
+            currentLevel = (currentLevel + delta + Levels.Length) % Levels.Length;
+            string levelSuffix = Levels[currentLevel];
+
+            var towers = Resources.FindObjectsOfTypeAll<Tower>()
+                .Where(t => t.data.id.EndsWith(levelSuffix))
+                .OrderBy(t => t.data.model)
+                .ToArray();
+
+            keyToUnitMap.Clear();
+
+            int totalTowers = Math.Min(towers.Length, buildKeys.Length * 2);
+            for (int i = 0; i < totalTowers; i++)
+            {
+                var shift = i >= buildKeys.Length;
+                var key = buildKeys[i % buildKeys.Length];
+                keyToUnitMap[new KeyShiftPair(key, shift)] = towers[i];
+            }
+
+            Logger.LogInfo($"Switched to tower level: {levelSuffix}");
+        }
 
         [HarmonyPrefix]
         public static void Prefix(ref string name)
         {
-            var towers = Resources.FindObjectsOfTypeAll<Tower>().Where(tower => tower.data.id.EndsWith("Lv1")).OrderBy(tower => tower.data.model).ToArray();
 
             if (name.StartsWith("Level") || name.StartsWith("AnimLevel"))
             {
                 Logger.LogInfo("Level load detected. Setting up key bindings...");
 
-                var keyToUnitMap = new Dictionary<KeyShiftPair, Tower>();
-
-                int totalKeys = buildKeys.Length * 2; // normal and shift
-                int totalTowers = Math.Min(towers.Length, totalKeys);
-
-                for (int i = 0; i < totalTowers; i++)
-                {
-                    var shift = i >= buildKeys.Length;
-                    var key = buildKeys[i % buildKeys.Length];
-                    keyToUnitMap[new KeyShiftPair(key, shift)] = towers[i];
-                }
+                SwitchTowerLevel(0); // Initialize to Lv1
 
                 onKeyDownHandler = evt =>
                 {
                     var key = evt.inputEvent.keyCode;
                     var shift = evt.inputEvent.shift;
+
+                    if (key == NextLevelKey)
+                    {
+                        SwitchTowerLevel(1);
+                        return;
+                    }
+
+                    if (key == PrevLevelKey)
+                    {
+                        SwitchTowerLevel(-1);
+                        return;
+                    }
 
                     if (buildKeySet.Contains(key) && keyToUnitMap.TryGetValue(new KeyShiftPair(key, shift), out var tower))
                     {
